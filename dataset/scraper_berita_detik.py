@@ -6,6 +6,7 @@ import random
 import re
 from datetime import datetime
 import os
+import glob
 
 class DetikKriminalitasScraper:
     def __init__(self):
@@ -96,6 +97,65 @@ class DetikKriminalitasScraper:
         except:
             return date_str
     
+    def combine_batch_files(self):
+        """Menggabungkan semua file batch menjadi satu file CSV"""
+        try:
+            print("Menggabungkan file batch...")
+            
+            # Gunakan glob untuk menemukan semua file batch dengan pattern yang tepat
+            batch_pattern = os.path.join('hasil_scraping', 'detik_kriminalitas_*_to_*.csv')
+            all_files = sorted(glob.glob(batch_pattern))
+            
+            if not all_files:
+                print("Tidak ada file batch yang ditemukan untuk digabungkan.")
+                return
+                
+            print(f"Menemukan {len(all_files)} file untuk digabungkan:")
+            for file in all_files:
+                print(f"- {os.path.basename(file)}")
+                
+            # Inisialisasi list untuk menyimpan semua dataframe
+            all_dfs = []
+            
+            # Baca dan gabungkan semua file
+            for file in all_files:
+                try:
+                    df = pd.read_csv(file)
+                    if df.empty:
+                        print(f"File {os.path.basename(file)} kosong, akan dilewati.")
+                        continue
+                        
+                    print(f"Membaca {os.path.basename(file)}: {len(df)} baris")
+                    all_dfs.append(df)
+                except Exception as e:
+                    print(f"Error saat membaca file {os.path.basename(file)}: {e}")
+                    continue
+            
+            if not all_dfs:
+                print("Tidak ada data valid yang bisa digabungkan.")
+                return
+                
+            # Gabungkan semua dataframe
+            combined_df = pd.concat(all_dfs, ignore_index=True)
+            
+            # Hapus duplikat jika ada
+            original_count = len(combined_df)
+            combined_df.drop_duplicates(subset=['url'], keep='first', inplace=True)
+            dedup_count = len(combined_df)
+            
+            if original_count > dedup_count:
+                print(f"Menghapus {original_count - dedup_count} duplikat data.")
+                
+            # Simpan hasil gabungan
+            output_file = os.path.join('hasil_scraping', 'detik_kriminalitas_all.csv')
+            combined_df.to_csv(output_file, index=False)
+            print(f"Semua data berhasil digabungkan. Total {len(combined_df)} artikel tersimpan ke {output_file}")
+                
+        except Exception as e:
+            print(f"Error saat menggabungkan file: {e}")
+            import traceback
+            traceback.print_exc()
+
     def scrape_search_results(self, query="kriminalitas", result_type="latest", start_page=None, end_page=None, batch_size=10):
         """Scraping hasil pencarian berita dari Detik.com"""
         
@@ -255,35 +315,11 @@ class DetikKriminalitasScraper:
         
         # Gabungkan semua file batch jika diperlukan
         self.combine_batch_files()
-        
-    def combine_batch_files(self):
-        """Menggabungkan semua file batch menjadi satu file CSV"""
-        try:
-            print("Menggabungkan file batch...")
-            
-            all_files = [f for f in os.listdir('hasil_scraping') if f.startswith('detik_kriminalitas_') and f.endswith('.csv')]
-            all_dfs = []
-            
-            for file in all_files:
-                file_path = os.path.join('hasil_scraping', file)
-                df = pd.read_csv(file_path)
-                all_dfs.append(df)
-                
-            if all_dfs:
-                combined_df = pd.concat(all_dfs, ignore_index=True)
-                combined_df.to_csv('hasil_scraping/detik_kriminalitas_all.csv', index=False)
-                print(f"Semua data digabungkan. Total {len(combined_df)} artikel tersimpan.")
-            else:
-                print("Tidak ada file batch yang ditemukan untuk digabungkan.")
-                
-        except Exception as e:
-            print(f"Error saat menggabungkan file: {e}")
 
-# Jalankan scraper
 if __name__ == "__main__":
     # Parameter yang bisa diubah
-    START_PAGE = 51  # Mulai dari halaman berapa
-    END_PAGE = 70  # Sampai halaman berapa (total 579 halaman)
+    START_PAGE = 101  # Mulai dari halaman berapa
+    END_PAGE = 150  # Sampai halaman berapa (total 579 halaman)
     BATCH_SIZE = 10  # Simpan data setiap berapa halaman
     
     scraper = DetikKriminalitasScraper()
