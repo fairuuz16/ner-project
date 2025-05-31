@@ -1,2 +1,4 @@
 .venv/
 venv/
+/notebooks/manual_review_iter_1.csv
+/notebooks/training_progress.jsons
